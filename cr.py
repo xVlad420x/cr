@@ -85,8 +85,8 @@ class User():
         self.map_location = None
 
     #Uses both move functions to get precisely to the door and look at the lock in a timely manner
-    #Takes a door object as an input
-    def get_to_door_and_face_lock(self, door_object):
+    #Takes a path object as an input
+    def get_to_door_and_face_lock(self, path_object):
         #temp
         self.map_vision = None
         self.map_location = None
@@ -156,4 +156,49 @@ class Spawn():
                 else:
                     self.time_of_last_spawn = datetime.datetime.now().timestamp() - (bedtimer/2)
 
-    
+class Location():
+    def __init__(self,x,y,z):
+        self.xcoord = x
+        self.ycoord = y
+        self.zcoord = z
+
+class Vision():
+    def __init__(self,x,y,z):
+        self.xcoord = x
+        self.ycoord = y
+        self.zcoord = z
+
+#Contains the spawn, door and any intermediary coordinates
+class Path():
+    def __init__(self,spawn,door):
+        self.spawn = spawn
+        self.locationlist = []
+        self.door = door
+
+#the main function
+def driver():
+    #We begin with tutples with door and spawn information, door tuple has location, vision and id
+    #spawn tuple has location, whether its a bed, and the associated door
+    doors = [(Location(1,2,3),Vision(1,2,3),1),(Location(2,3,5),Vision(6,3,1),2)]
+    spawns = [(Location(8,9,10),False,1),(Location(83,92,101),False,1), (Location(38,39,103),False,2), (Location(418,329,1320),False,2)]
+
+
+    doorlist = []
+    for tup in doors:
+        doorlist.append(Door(tup[0],tup[1],tup[2]))
+    spawnlist = []
+    for i in range(1,len(spawns)):
+        spawnlist.append(Spawn(spawns[0],spawns[1],spawns[3],i))
+
+    #get the door object from a doorid
+    def getdoor(id):
+        for door in doorlist:
+            if(door.door_id == id):
+                return door
+        raise KeyError("Door id not found, doorid: " + id)
+
+    #Construct a path dictionary easily accessible from a spawnid
+    path_dict = {}
+    for spawn in spawnlist:
+        temppath = Path(spawn,getdoor(spawn.associated_door))
+        path_dict[spawn.spawn_id] = temppath
