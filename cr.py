@@ -175,13 +175,16 @@ class Path():
         self.locationlist = []
         self.door = door
 
+    def updatepath(self,locationlist):
+        self.locationlist = locationlist
+
 #the main function
 def driver():
     #We begin with tutples with door and spawn information, door tuple has location, vision and id
-    #spawn tuple has location, whether its a bed, and the associated door
+    #spawn tuple has location, whether its a bed, and the associated door, updated paths has the spawnid and then corresponding location stoppages to the door
     doors = [(Location(1,2,3),Vision(1,2,3),1),(Location(2,3,5),Vision(6,3,1),2)]
     spawns = [(Location(8,9,10),False,1),(Location(83,92,101),False,1), (Location(38,39,103),False,2), (Location(418,329,1320),False,2)]
-
+    updatedpaths = [[]]
 
     doorlist = []
     for tup in doors:
