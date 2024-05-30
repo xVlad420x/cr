@@ -1,0 +1,18 @@
+﻿This is the configuration file, be mindful to not change the spacing, simply remove default values and remove them with the desired outcome.
+1) We will now list important key binds, make sure to follow the proper formatting. For shift, alt, and control please specify left or right. For arrows just say: "up" for the up key and so on. Note f1-12 is defined.
+Forward = w
+Backward = s
+Left = a
+Right = d
+Use = z
+Crouch = alt_left
+Sprint = shift_left
+Console = `
+Jump = space
+
+2) We will consider when we want the bot to stop. If a value is true, the bot will stop. If false, then it will be considered a warning, but will keep going. The 1st value is when the code is suspected to be found. The 2nd value is when the bot died to a player, the 3rd is a death to an animal, the 4th is when a bag/bed was destroyed, the 5th is when the door has been locked out from codes.
+Code_Found = True
+Player_Death = True
+Animal_Death = False
+Spawn_Destroyed = True
+Door_Ban = True
