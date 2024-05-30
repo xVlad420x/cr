@@ -5,6 +5,7 @@ import datetime
 import pynput
 import os
 import sys
+import pandas as pd
 
 #constants
 bagtimer = 300
@@ -123,6 +124,30 @@ class User:
             self.console = con
             self.jump = jum
 
+    class StandardInfo:
+        def __init__(self):
+            self.map_location = None
+            self.map_vision = None
+            self.current_code_count = 0
+
+        def setlocation(self,location):
+            self.map_location = location
+
+        def getlocation(self):
+            return self.map_location
+
+        def setvision(self,eyes):
+            self.map_vision = eyes
+
+        def getvision(self):
+            return self.getvision()
+
+        def setcount(self,ccount):
+            self.current_code_count = ccount
+
+        def getcount(self):
+            return self.current_code_count
+
     class PlayerCriticalStatus:
         def __init__(self):
             self.is_killed_code = True
@@ -180,15 +205,15 @@ class User:
         self.dpi = None
         self.map_zoom = None
         self.player_input = self.PlayerInput(fow, bac, lef, rig, use, duc, spr, con, jum)
+        self.standard_info = self.StandardInfo()
         self.console_input_cord = [100, 100]
         self.console_copy_cord = [200, 200]
         self.console_clear_cord = [300, 300]
-        self.map_location = None
-        self.map_vision = None
         self.status = self.PlayerCriticalStatus()
         self.should_stop = False
         self.tools = self.CodeRaidTools()
         self.autopause_tuple = (code_flag,player_death_flag,animal_death_flag,destroyed_bag_flag,door_ban_flag)
+        self.codes_df = None
 
     def read_config(self):
         code_f = True
@@ -234,6 +259,23 @@ class User:
         else:
             raise FileNotFoundError
 
+    def read_codefile(self):
+        code_table = sys.argv[2]
+        codes = pd.read_csv(code_table)
+        self.codes_df = codes
+        '''
+        print(codes.to_string())
+        a = self.codes_df["Code"].values[0].astype(str)
+        sum = 0
+        for i in range(len(self.codes_df["Code"])):
+            print(self.codes_df["Entries"].values[i].astype(int))
+            sum+= self.codes_df["Entries"].values[i].astype(int)
+        print(sum)
+        s = codes['Entries'].sum()
+        print(s)
+        '''
+
+
     #Use console to find in game sensitivity
     def get_ingame_sens(self):
         #temp
@@ -257,7 +299,7 @@ class User:
         #temp
         self.map_zoom = None
 
-    #This is used if the default console cords were incorrect
+    #This is used if the default console screen cords were incorrect
     def set_console_cords(self, input_cord, copy_cord, clear_cord):
         self.console_input_cord = input_cord
         self.console_copy_cord = copy_cord
@@ -343,10 +385,10 @@ class User:
         if(must_close_console):
             usekey(self.player_input.console)
 
-    def set_stop_warnings(self,successful_code,killed_by_player,killed_by_animal,destroyed_bag,door_locked_out):
+    def check_stop_warnings(self):
         pass
 
-    def setup(self):
+    def create_tools(self):
         # We begin with tutples with door and spawn information, door tuple has location, vision and id
         # spawn tuple has location, whether its a bed, and the associated door, updated paths has the spawnid and then corresponding location stoppages to the door
         doors = [(Location(1, 2, 3), Vision(1, 2, 3), 1), (Location(2, 3, 5), Vision(6, 3, 1), 2)]
@@ -377,9 +419,24 @@ class User:
 
     #Main Drivercode
     def coderaid(self):
-        pass
+        while(not self.should_stop):
+            time.sleep(0.5)
+            self.update_door_timers()
+            self.update_spawn_timers()
+            current_door = self.choose_available_door() #choose random available door
+            if(current_door == None):
+                continue
+            current_spawn = self.choose_best_bag(current_door) #best based on availability and closeness
+            if(current_spawn == None):
+                continue
+            current_path = self.tools[current_spawn.spawn_id]
+            self.perform_run(current_path)
+
+
+
 
 
 test = User("w","s","a","d","z",Key.cmd_l,Key.shift_l,Key.f1,Key.space, True,True,False,True,True)
 print("testing")
 test.read_config()
+test.read_codefile()
