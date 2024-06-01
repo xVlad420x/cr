@@ -5,9 +5,10 @@ Backward = s
 Left = a
 Right = d
 Use = z
+Map = e
 Crouch = alt_left
 Sprint = shift_left
-Console = `
+Console = f1
 Jump = space
 
 2) We will consider when we want the bot to stop. If a value is true, the bot will stop. If false, then it will be considered a warning, but will keep going. The 1st value is when the code is suspected to be found. The 2nd value is when the bot died to a player, the 3rd is a death to an animal, the 4th is when a bag/bed was destroyed, the 5th is when the door has been locked out from codes.
@@ -16,3 +17,14 @@ Player_Death = True
 Animal_Death = False
 Spawn_Destroyed = True
 Door_Ban = True
+
+3) We will consider the pynput screen coordinates of the console buttons we need. For fullscreen 1920x1080 resolution the following should work fine.
+Copy = (1625,900)
+Clear = (1700,900)
+Input = (1600,925)
+
+4) Consider the kill switch key which turns the bot off
+Killswitch = f2
+
+5) Consider certain delays in seconds, the first value is how long to wait between moving to different buttons
+Cons_Delay = 0.1

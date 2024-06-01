@@ -1,27 +1,33 @@
 import ctypes
+import math
 import time
 import datetime
-#import win32api
 import pynput
 import os
 import sys
 import pandas as pd
-
+import pyperclip as pc
+import win32api, win32con, win32gui
+#pip install pywin32
 #constants
 bagtimer = 300
 bedtimer = 120
 
 #keyboard IO functions
-from pynput.keyboard import Key, Controller
-keyboard = Controller()
+from pynput.keyboard import Key, Controller, Listener
+outputkeyboard = Controller()
+from pynput.mouse import Controller, Button
+outputmouse = Controller()
 def usekey(mykey):
-    keyboard.press(mykey)
-    keyboard.release(mykey)
+    outputkeyboard.press(mykey)
+    outputkeyboard.release(mykey)
 
 def type(string):
     for character in string:
-        keyboard.press(character)
-        keyboard.release(character)
+        time.sleep(0.05)
+        outputkeyboard.press(character)
+        outputkeyboard.release(character)
+
 
 pynput_key_dict = {"space": Key.space, "shift_left": Key.shift_l, "shift_right": Key.shift_r, "alt_left": Key.alt_l, "alt_right": Key.alt_r,
                    "control_left": Key.ctrl_l, "control_right": Key.ctrl_r, "enter": Key.enter, "backspace": Key.backspace,
@@ -113,16 +119,20 @@ class Path():
 #Keeps track of player movement and state
 class User:
     class PlayerInput:
-        def __init__(self,fow, bac, lef, rig, use, duc, spr, con, jum):
-            self.forward = fow
-            self.backward = bac
-            self.left = lef
-            self.right = rig
-            self.use = use
-            self.crouch = duc
-            self.sprint = spr
-            self.console = con
-            self.jump = jum
+        def __init__(self):
+            self.forward = None
+            self.backward = None
+            self.left = None
+            self.right = None
+            self.use = None
+            self.map = None
+            self.crouch = None
+            self.sprint = None
+            self.console = None
+            self.jump = None
+            self.killswitch = None
+            self.console_delay = 1
+
 
     class StandardInfo:
         def __init__(self):
@@ -156,6 +166,7 @@ class User:
             self.successfull_code = False
             self.destroyed_bag = False
             self.door_banned = False
+            self.kill_switch = False
 
         def update_death(self,deathid):
             if(deathid == 2):
@@ -191,6 +202,12 @@ class User:
             self.doorlist = doors
             self.path_dict = paths
 
+    class ConsoleWindowCords:
+        def __init__(self):
+            self.input_cord = None
+            self.copy_cord = None
+            self.clear_cord = None
+
 
 
     #Create the user with the appropriate key binds
@@ -199,22 +216,30 @@ class User:
     #Vision and Location get updated frequently
     #Death Status gets checked whenever console is used
 
-    def __init__(self, fow, bac, lef, rig, use, duc, spr, con,jum,code_flag,player_death_flag,animal_death_flag,destroyed_bag_flag,door_ban_flag):
+    def __init__(self):
         self.sens = None
-        self.cursor_speed = None
-        self.dpi = None
         self.map_zoom = None
-        self.player_input = self.PlayerInput(fow, bac, lef, rig, use, duc, spr, con, jum)
+        self.player_input = self.PlayerInput()
         self.standard_info = self.StandardInfo()
-        self.console_input_cord = [100, 100]
-        self.console_copy_cord = [200, 200]
-        self.console_clear_cord = [300, 300]
+        self.console_cords = self.ConsoleWindowCords()
         self.status = self.PlayerCriticalStatus()
         self.should_stop = False
         self.tools = self.CodeRaidTools()
-        self.autopause_tuple = (code_flag,player_death_flag,animal_death_flag,destroyed_bag_flag,door_ban_flag)
+        self.autopause_tuple = (None,None,None,None,None)
         self.codes_df = None
 
+    def wait(self,time1):
+        iterations_per_second = 5.0 #how many times a second we want to check the killswitch key
+        if(self.should_stop_warnings()):
+            sys.exit(0)
+        iterations = math.floor(time1 * iterations_per_second)
+        remainder = ((time1 * iterations_per_second) - math.floor(time1 * iterations_per_second))/iterations_per_second
+        for i in range(iterations):
+            time.sleep(1.0/iterations_per_second)
+            if(self.status.kill_switch == True):
+                print("Killswitch toggled")
+                sys.exit(0)
+        time.sleep(remainder)
     def read_config(self):
         code_f = True
         pd_f = True
@@ -236,11 +261,13 @@ class User:
                         self.player_input.right = getkey(myline[(myline.index("=") + 1):len(myline)].strip())
                     elif ("Use" in myline):
                         self.player_input.use = getkey(myline[(myline.index("=") + 1):len(myline)].strip())
+                    elif ("Map" in myline):
+                        self.player_input.map = getkey(myline[(myline.index("=") + 1):len(myline)].strip())
                     elif ("Crouch" in myline):
                         self.player_input.crouch = getkey(myline[(myline.index("=") + 1):len(myline)].strip())
                     elif ("Sprint" in myline):
                         self.player_input.sprint = getkey(myline[(myline.index("=") + 1):len(myline)].strip())
-                    elif ("Console" in myline):
+                    elif ("Console " in myline):
                         self.player_input.console = getkey(myline[(myline.index("=") + 1):len(myline)].strip())
                     elif ("Jump" in myline):
                         self.player_input.jump = getkey(myline[(myline.index("=") + 1):len(myline)].strip())
@@ -254,6 +281,25 @@ class User:
                         db1_f = str_to_bool(myline[(myline.index("=") + 1):len(myline)].strip())
                     elif ("Door_Ban" in myline):
                         db2_f = str_to_bool(myline[(myline.index("=") + 1):len(myline)].strip())
+                    elif ("Copy" in myline):
+                        tempstr = myline[(myline.index("=") + 1):len(myline)].strip()
+                        x = tempstr[(tempstr.index("(") + 1):tempstr.index(",")]
+                        y = tempstr[(tempstr.index(",") + 1):(len(tempstr) - 1)]
+                        self.console_cords.copy_cord = (x,y)
+                    elif ("Clear" in myline):
+                        tempstr = myline[(myline.index("=") + 1):len(myline)].strip()
+                        x = tempstr[(tempstr.index("(") + 1):tempstr.index(",")]
+                        y = tempstr[(tempstr.index(",") + 1):(len(tempstr) - 1)]
+                        self.console_cords.clear_cord = (x,y)
+                    elif ("Input" in myline):
+                        tempstr = myline[(myline.index("=") + 1):len(myline)].strip()
+                        x = tempstr[(tempstr.index("(") + 1):tempstr.index(",")]
+                        y = tempstr[(tempstr.index(",") + 1):(len(tempstr) - 1)]
+                        self.console_cords.input_cord = (x,y)
+                    elif ("Killswitch" in myline):
+                        self.player_input.killswitch = getkey(myline[(myline.index("=") + 1):len(myline)].strip())
+                    elif ("Cons_Delay" in myline):
+                        self.player_input.console_delay = float(myline[(myline.index("=") + 1):len(myline)].strip())
                 self.autopause_tuple = (code_f,pd_f,ad_f,db1_f,db2_f)
             #print(os.path.basename(config_path))
         else:
@@ -276,34 +322,35 @@ class User:
         '''
 
 
-    #Use console to find in game sensitivity
+    #Use console to find in game sensitivity, starting from regular game state
     def get_ingame_sens(self):
-        #temp
-        self.sens = None
+        usekey(self.player_input.console)
+        self.wait(self.player_input.console_delay)
+        outputmouse.position = (self.console_cords.clear_cord[0],self.console_cords.clear_cord[1])
+        self.wait(self.player_input.console_delay)
+        outputmouse.click(Button.left, 1)
+        self.wait(self.player_input.console_delay)
+        outputmouse.position = (self.console_cords.input_cord[0], self.console_cords.input_cord[1])
+        self.wait(self.player_input.console_delay)
+        outputmouse.click(Button.left, 1)
+        type("input.sensitivity")
+        usekey(Key.enter)
+        self.wait(self.player_input.console_delay)
+        outputmouse.position = (self.console_cords.copy_cord[0], self.console_cords.copy_cord[1])
+        self.wait(self.player_input.console_delay)
+        outputmouse.click(Button.left, 1)
+        self.wait(self.player_input.console_delay)
+        output = pc.paste()
+        cut = output[output.index("vity: \""):len(output)]
+        cut2 = cut[7:len(cut)]
+        cut3 = float(cut2[0:(cut2.index("\""))])
+        self.sens = cut3
 
-    #Get windows cursor speed using ctypes
-    def get_cursor_speed(self):
-        #temp
-        #get_mouse_speed = 112
-        #speed = ctypes.c_int()
-        #ctypes.windll.user32.SystemParametersInfoA(get_mouse_speed, 0, ctypes.byref(speed), 0)
-        self.cursor_speed = None
-
-    #Get mouse dpi if necessary
-    def get_dpi(self):
-        #temp
-        self.dpi = None
 
     #Scroll in and out of the map to get the desired zoom, set by programmer
     def get_zoom(self):
         #temp
         self.map_zoom = None
-
-    #This is used if the default console screen cords were incorrect
-    def set_console_cords(self, input_cord, copy_cord, clear_cord):
-        self.console_input_cord = input_cord
-        self.console_copy_cord = copy_cord
-        self.console_clear_cord = clear_cord
 
     #Turn the character to the desired vector
     def face_direction(self, target_vision):
@@ -366,7 +413,7 @@ class User:
             self.status.update_death(2)
         elif(killedanimal):
             self.status.update_death(1)
-        elif(killedanimal):
+        elif(killedcode):
             self.status.update_death(0)
 
     def update_location(self,must_open_console,must_close_console):
@@ -385,8 +432,31 @@ class User:
         if(must_close_console):
             usekey(self.player_input.console)
 
-    def check_stop_warnings(self):
-        pass
+    def should_stop_warnings(self) -> bool:
+        if(self.status.kill_switch == True):
+            print("Killswitch toggled")
+            return True
+        if(self.status.successfull_code):
+            print("Found Code")
+            if(self.autopause_tuple[0] == True):
+                return True
+        if(self.status.is_killed_player):
+            print("Warning: Killed By Player")
+            if(self.autopause_tuple[1] == True):
+                return True
+        if (self.status.is_killed_animal):
+            print("Warning: Killed By Animal")
+            if (self.autopause_tuple[2] == True):
+                return True
+        if (self.status.destroyed_bag):
+            print("Warning: Destroyed Spawn")
+            if (self.autopause_tuple[3] == True):
+                return True
+        if (self.status.door_banned):
+            print("Warning: Door Got Banned")
+            if (self.autopause_tuple[4] == True):
+                return True
+        return False
 
     def create_tools(self):
         # We begin with tutples with door and spawn information, door tuple has location, vision and id
@@ -431,12 +501,170 @@ class User:
                 continue
             current_path = self.tools[current_spawn.spawn_id]
             self.perform_run(current_path)
+            self.check_stop_warnings()
 
 
+#win32api.mouse_event(win32con.MOUSEEVENTF_MOVE, int(9.259 * 50), 0, 0, 0)
+
+from pynput.mouse import Controller
+mouse = Controller()
+'''
+for i in range(20):
+    time.sleep(0.02)
+    mouse.scroll(0, 1)
+for i in range(5):
+    time.sleep(0.02)
+    mouse.scroll(0, -1)
+'''
+'''
+from pynput import mouse
+
+def on_move(x, y):
+    print('Pointer moved to {0}'.format(
+        (x, y)))
+
+def on_click(x, y, button, pressed):
+    print('{0} at {1}'.format(
+        'Pressed' if pressed else 'Released',
+        (x, y)))
+    if not pressed:
+        # Stop listener
+        return False
+
+def on_scroll(x, y, dx, dy):
+    print('Scrolled {0} at {1}'.format(
+        'down' if dy < 0 else 'up',
+        (x, y)))
+
+ Collect events until released
+with mouse.Listener(
+        on_move=on_move,
+        on_click=on_click,
+        on_scroll=on_scroll) as listener:
+    listener.join()
+'''
+#copy: 1625,900
+#clear: 1700,900
+#input: 1600,925
+copy= (1625,900)
+clear = (1700,900)
+input = (1600,925)
+def testconsole():
+    mouse.position = (copy[0],copy[1])
+    mouse.click(Button.left, 1)
+    time.sleep(0.5)
+    mouse.position = (clear[0],clear[1])
+    mouse.click(Button.left, 1)
+    time.sleep(0.5)
+    mouse.position = (input[0],input[1])
+    mouse.click(Button.left, 1)
+    print("moved mouse")
+    type("client.printpos")
+    usekey(Key.enter)
+    mouse.position = (copy[0],copy[1])
+    mouse.click(Button.left, 1)
+    time.sleep(0.5)
+    mouse.position = (clear[0],clear[1])
+    mouse.click(Button.left, 1)
+    time.sleep(0.5)
+
+kill_switch = False
+def testkillswitch():
+    from pynput import keyboard
+
+    def listenforfail():
+
+        def on_press(key):
+            try:
+                print('alphanumeric key {0} pressed'.format(
+                    key.char))
+            except AttributeError:
+                print('special key {0} pressed'.format(
+                    key))
+
+        def on_release(key):
+            global kill_switch
+            print('{0} released'.format(
+                key))
+            if key == keyboard.Key.esc:
+                # Stop listener
+                #sys.exit(0)
+                kill_switch = True
+                return False
+
+        # Collect events until released
+        with keyboard.Listener(
+                on_press=on_press,
+                on_release=on_release) as listener:
+            listener.join()
+
+    def printtest2(b):
+        while(True):
+            global kill_switch
+            print(kill_switch)
+            time.sleep(5)
+            if(kill_switch):
+                return True
+                #sys.exit(0)
 
 
+    import threading
+    t1 = threading.Thread(target=printtest2, args = (10,))
+    t2 = threading.Thread(target=listenforfail, args = ())
+    t1.start()
+    t2.start()
+    t1.join()
+    t2.join()
 
-test = User("w","s","a","d","z",Key.cmd_l,Key.shift_l,Key.f1,Key.space, True,True,False,True,True)
+def testkillswitch2(user: User):
+    from pynput import keyboard
+
+    def listenforfail():
+
+        def on_press(key):
+            try:
+                print('alphanumeric key {0} pressed'.format(
+                    key.char))
+            except AttributeError:
+                print('special key {0} pressed'.format(
+                    key))
+
+        def on_release(key):
+            global kill_switch
+            print('{0} released'.format(
+                key))
+            if key == user.player_input.killswitch:
+                # Stop listener
+                #sys.exit(0)
+                user.status.kill_switch = True
+                return False
+
+        # Collect events until released
+        with keyboard.Listener(
+                on_press=on_press,
+                on_release=on_release) as listener:
+            listener.join()
+
+    def printtest5():
+        user.get_ingame_sens()
+
+
+    import threading
+    t1 = threading.Thread(target=printtest5, args = ())
+    t2 = threading.Thread(target=listenforfail, args = ())
+    t1.start()
+    t2.start()
+    t1.join()
+    t2.join()
+
+
+test = User()
 print("testing")
 test.read_config()
 test.read_codefile()
+#pywin32.moveTo()
+print("sus: ")
+time.sleep(1)
+#test.get_ingame_sens()
+testkillswitch2(test)
+print(test.sens)
