@@ -4,6 +4,8 @@
 #Todo: implement checks to see if door is locked or spawn is destroyed
 #Todo: implement time based stop
 #Todo: implement 1 min suicide timer
+#Todo: config variable codes to put in ex: 5 or 6
+#Todo: Consider spawning to be part of path time
 
 import ctypes
 import statistics
@@ -565,7 +567,7 @@ class User:
         print(door_object.time_of_last_code)
 
         #one or the other
-        time.sleep(4.0)
+        self.wait(40 * self.player_input.console_delay)
 
         #move_mouse and use pynput
         #check after 2 codes if died to codelock, if yes than is blocked
@@ -578,10 +580,10 @@ class User:
         self.movemousetobag(spawn_object.location, current_location)
         self.wait(self.player_input.console_delay)
         outputmouse.click(Button.left, 1)
-        self.wait(20 * self.player_input.console_delay)
+        self.wait(40 * self.player_input.console_delay)
         spawn_object.time_of_last_spawn = timestamp()
         usekey(self.player_input.jump)
-        self.wait(self.player_input.console_delay)
+        self.wait(self.player_input.console_delay * 3)
 
     #check 5 things: vision, eyes, killed by player, animal, code
     def read_console(self):
@@ -615,6 +617,7 @@ class User:
         outputmouse.position = (self.console_cords.input_cord[0], self.console_cords.input_cord[1])
         self.wait(self.player_input.console_delay)
         outputmouse.click(Button.left, 1)
+        self.wait(self.player_input.console_delay)
         self.type("client.printpos")
         usekey(Key.enter)
         self.wait(self.player_input.console_delay)
@@ -648,6 +651,7 @@ class User:
         outputmouse.position = (self.console_cords.input_cord[0], self.console_cords.input_cord[1])
         self.wait(self.player_input.console_delay)
         outputmouse.click(Button.left, 1)
+        self.wait(self.player_input.console_delay)
         self.type("client.printeyes")
         usekey(Key.enter)
         self.wait(self.player_input.console_delay)
