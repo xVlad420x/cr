@@ -1,0 +1,18 @@
+Context:
+This program is a tool meant for Rust. Rust is a pvp game where player collect resources around a map trying to find and craft better weapons, farm equipment, clothing, etc. Players store their collected items in a base. Some players have multiple bases but generally most teams have one main bases with upgraded walls and base defenses. Non solo players get in and out of their base through doors that have a code lock. Code locks have a code that is 4 digits. Technically teams can put different codes on each door but most have the same code on all doors throughout the base.
+
+Goal:
+Instead of farming numerous days for explosives, assuming all doors have the same code, guessing the code to the door might be easier. I will attempt to make a tool that will assist in code raiding. The goal is to create a bot that will do all the work code raiding including spawning, running to the door and putting the codes in. The bot must all give indications to the player if the code has been found or if something goes wrong like a spawn being destroyed or getting killed by a player or animal. The bot can be customized in a config file so users don't need to look at the code. Some customization includes delay (for slow pcs), the input controls, what is considered a warning, etc. Once set up, the bot should be able to perform the code raiding process completely without the player present.
+
+Challenge:
+There are numerous ways the game combats code raiding. The door will electrocute the player after 5 wrong codes, so the bot must continuously spawn and run up to the door. Spawns can only be used once every 5 mins and have a radius where other spawns can't be placed. To prevent 20 people spam typing codes,  as of 2021 a door can only take 7 codes before being "banned" which will instantly kill a player that types in a code for a 15 minute period. Obviously 7 codes every 15 minutes is way too slow and so this was considered to be the update that "killed" code raiding. However, if you type in 5 codes then wait 1 minute, then type 5 codes and wait 1 min, etc. You can code raid without triggering the door ban. 5 codes a minute is a bit slow, so ideally you want to target a base with 2 or 3 exposed doors to reach above 10codes/min.
+
+Reasoning: 
+In four-digit.csv, codes are sorted by frequency according to a study. Unsurprisingly, codes like 2024, 2000, 1111, 1234, 9999 are more common than seemingly random codes like 4183 or 3902. These common codes are easier to remember so it makes sense why they are more common. However, with the popularity of code raiding in 2021, some groups are smart enough to not choose a common code. Thus, the code raid bot needs to be efficient enough to input enough codes in a short enough period of time. Assuming a code is within the top 3000 most common ones and at 10 codes/min, we can find it within 5 hours. Assuming a group does not take shifts being online (which the most dominant people on the server unfortunately do), running the bot from 2am to 7am on medium sized base is likely to crack the code in theory. 
+
+How:
+I will not be using computer vision techniques to tell the bot where to go (eventhough I will eventually get around to this in a year or two). However, typing client.printpos in console gives you the x,y,z position of your character. If you stand by the door you want to attack, you can easily get the coordinate. Similarly, you can do the same thing for spawns. For a door, you can also type client.printeyes in console to get yaw and pitch of your character (to look at the door). Thus, with some input coordinates, some high school geometry, and the player speed, the bot can move the mouse and hold keys to move to the desired position.
+
+
+
+
