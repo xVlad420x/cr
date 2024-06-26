@@ -23,8 +23,12 @@ Copy = (1625,900)
 Clear = (1700,900)
 Input = (1600,925)
 
-4) Consider the kill switch key which turns the bot off
+4) Consider the kill switch key which turns the bot off, and other keys when initializing necessary doors, spawns, detours
 Killswitch = f2
+Add_door = f3
+Add_bag = f4
+Add_bed = f5
+Add_detour = f6
 
 5) Consider certain delays in seconds, the first value is how long to wait between moving to different buttons
 Cons_Delay = 0.1

@@ -5,7 +5,7 @@
 #Todo: implement time based stop
 #Todo: implement 1 min suicide timer
 #Todo: config variable codes to put in ex: 5 or 6
-#Todo: Consider spawning to be part of path time
+#Todo: Move mouse to bag function too inaccurate for zoom of 5, make more accurate
 
 import ctypes
 import statistics
@@ -514,8 +514,7 @@ class User:
 
     #Uses both move functions to get precisely to the door and look at the lock in a timely manner
     #Takes a path object as an input
-    def get_to_door_and_face_lock(self, path_object: Path):
-        departure_time = timestamp()
+    def get_to_door_and_face_lock(self, path_object: Path, departure_time: float):
         for location in path_object.locationlist:
             self.update_vision(True, False)
             self.update_location(False, True)
@@ -580,7 +579,7 @@ class User:
         self.movemousetobag(spawn_object.location, current_location)
         self.wait(self.player_input.console_delay)
         outputmouse.click(Button.left, 1)
-        self.wait(40 * self.player_input.console_delay)
+        self.wait(25 * self.player_input.console_delay)
         spawn_object.time_of_last_spawn = timestamp()
         usekey(self.player_input.jump)
         self.wait(self.player_input.console_delay * 3)
@@ -854,8 +853,9 @@ class User:
             self.update_location(True, True)
             outputmouse.position = (initial_mouse_pos[0], initial_mouse_pos[1])
             self.wait(self.player_input.console_delay)
+            startrun_time = timestamp()
             self.spawn(optimalpath.spawn,self.standard_info.map_location)
-            self.get_to_door_and_face_lock(optimalpath)
+            self.get_to_door_and_face_lock(optimalpath, startrun_time)
             self.punch_in_5_codes(optimalpath.door)
             #print("REEE")
             #sys.exit(0)
