@@ -3,8 +3,6 @@
 #Todo: read console to determine if killed by player, cold, animal
 #Todo: implement checks to see if door is locked or spawn is destroyed
 #Todo: implement time based stop
-#Todo: implement 1 min suicide timer
-#Todo: config variable codes to put in ex: 5 or 6
 #Todo: Move mouse to bag function too inaccurate for zoom of 5, make more accurate
 
 import ctypes
@@ -166,6 +164,10 @@ class User:
             self.add_bag = None
             self.add_bed = None
             self.add_detour = None
+            self.codes_per_run = 0
+            self.targetzoom = 0
+            self.recurring_success = 0
+            self.grid_count = 0
 
 
     class StandardInfo:
@@ -197,6 +199,7 @@ class User:
             self.is_killed_code = True
             self.is_killed_player = False
             self.is_killed_animal = False
+            self.survived_code_crack_count = 0
             self.successfull_code = False
             self.destroyed_bag = False
             self.door_banned = False
@@ -254,7 +257,7 @@ class User:
 
     def __init__(self):
         self.sens = None
-        self.map_zoom = None
+        self.map_zoom = 2
         self.player_input = self.PlayerInput()
         self.standard_info = self.StandardInfo()
         self.console_cords = self.ConsoleWindowCords()
@@ -263,11 +266,19 @@ class User:
         self.tools = self.CodeRaidTools()
         self.autopause_tuple = (None,None,None,None,None)
         self.codes_df = None
+        self.suicide_timer = 0
 
     def type(self,string1):
         time.sleep(self.player_input.console_delay)
         for character in string1:
             time.sleep(self.player_input.console_delay/10)
+            outputkeyboard.press(character)
+            outputkeyboard.release(character)
+
+    def type_slower(self,string1):
+        time.sleep(self.player_input.console_delay)
+        for character in string1:
+            time.sleep(self.player_input.console_delay/3)
             outputkeyboard.press(character)
             outputkeyboard.release(character)
 
@@ -288,7 +299,7 @@ class User:
         for i in range(iterations):
             time.sleep(1.0/iterations_per_second)
             if(self.should_stop_warnings()):
-                print("Killswitch toggled")
+                print("Stopping due to status")
                 self.should_stop = True
                 self.release_all() #incase we are running
                 sys.exit(0)
@@ -361,8 +372,18 @@ class User:
                         self.player_input.add_detour = getkey(myline[(myline.index("=") + 1):len(myline)].strip())
                     elif ("Cons_Delay" in myline):
                         self.player_input.console_delay = float(myline[(myline.index("=") + 1):len(myline)].strip())
+                    elif ("Codes_Per_Run" in myline):
+                        self.player_input.codes_per_run = int(myline[(myline.index("=") + 1):len(myline)].strip())
+                    elif ("Mp_Zoom" in myline):
+                        self.player_input.targetzoom = int(myline[(myline.index("=") + 1):len(myline)].strip())
+                    elif ("Recurring_Survivals" in myline):
+                        self.player_input.recurring_success = int(myline[(myline.index("=") + 1):len(myline)].strip())
+                    elif ("Grids_Fullzoom_Height" in myline):
+                        self.player_input.grid_count = float(myline[(myline.index("=") + 1):len(myline)].strip())
                 self.autopause_tuple = (code_f,pd_f,ad_f,db1_f,db2_f)
             #print(os.path.basename(config_path))
+            #print("GRID COUNT:" + str(self.player_input.grid_count))
+            #print("Map ZOOM:" + str(self.player_input.targetzoom))
         else:
             raise FileNotFoundError
 
@@ -408,18 +429,34 @@ class User:
         usekey(self.player_input.console)
         self.sens = cut3
 
+    def copy_console(self):
+        usekey(self.player_input.console)
+        self.wait(self.player_input.console_delay)
+        initial_mouse_pos = list(outputmouse.position)
+        outputmouse.position = (self.console_cords.copy_cord[0], self.console_cords.copy_cord[1])
+        self.wait(self.player_input.console_delay)
+        outputmouse.click(Button.left, 1)
+        self.wait(self.player_input.console_delay)
+        usekey(self.player_input.console)
+        outputmouse.position = (initial_mouse_pos[0], initial_mouse_pos[1])
+        self.wait(self.player_input.console_delay)
+        output = pc.paste()
+        return output
+
 
     #Scroll in and out of the map to get the desired zoom, set by programmer
     def set_zoom(self):
-        self.suicide(True,True)
         print("setting zoom")
+        print(self.player_input.targetzoom)
+        self.wait(self.player_input.console_delay * 5)
         scrolltofullzoomin = 20
-        set_map_zoom = 5
+        set_map_zoom = self.player_input.targetzoom
         for i in range(scrolltofullzoomin):
-            self.wait(0.02)
+            self.wait(self.player_input.console_delay/2.0)
             mouse.scroll(0, 1)
+        print(set_map_zoom)
         for i in range(set_map_zoom):
-            self.wait(0.02)
+            self.wait(self.player_input.console_delay/2.0)
             mouse.scroll(0, -1)
         self.map_zoom = set_map_zoom
 
@@ -428,11 +465,14 @@ class User:
         bagy = bagloc.ycoord
         #mapzoom greater than 5 is untested
         x = self.map_zoom
-        mapzoom_multiplier = 1.646 - 0.1561 * x + (0.005282 * (x * x))
+        mapzoom_multiplier = -0.07034 * x + 1.087
+        grid_multiplier = (1.0/(self.player_input.grid_count/3.5))
         currentposition = currentlocation
         centercord = mouse.position
         bag_change = (bagx-currentposition.xcoord,bagy-currentposition.ycoord)
-        outputmouse.position = (centercord[0] + (bag_change[0] * 1.35 * mapzoom_multiplier), centercord[1] + -(bag_change[1] * 1.35 * mapzoom_multiplier))
+        #outputmouse.position = (centercord[0] + (bag_change[0] * 1.35 * mapzoom_multiplier),
+                                #centercord[1] + -(bag_change[1] * 1.35 * mapzoom_multiplier))
+        outputmouse.position = (centercord[0] + (bag_change[0] * 1.35 * mapzoom_multiplier * grid_multiplier), centercord[1] + -(bag_change[1] * 1.35 * mapzoom_multiplier * grid_multiplier))
 
     def turnx(self, xdegreesingame):
         win32api.mouse_event(win32con.MOUSEEVENTF_MOVE, int(7.4075 * (1.0/self.sens) * xdegreesingame), 0, 0, 0)
@@ -543,31 +583,57 @@ class User:
         path_object.push_duration(departure_time,arrival_time)
         self.face_direction(self.standard_info.map_vision, path_object.door.angle)
 
+    def check_death(self,console_string):
+        if self.check_in_console(console_string, "killed by wolf") or self.check_in_console(console_string, "killed by Wolf"):
+            self.status.is_killed_animal = True
+        elif self.check_in_console(console_string, "killed by bear") or self.check_in_console(console_string, "killed by Bear"):
+            self.status.is_killed_animal = True
+        elif self.check_in_console(console_string, "killed by boar") or self.check_in_console(console_string, "killed by Boar"):
+            self.status.is_killed_animal = True
+        elif self.check_in_console(console_string, "killed by ") or self.check_in_console(console_string, "killed by "):
+            self.status.is_killed_player = True
+
+    def check_in_console(self,console_string,string_to_match):
+        for str1 in console_string.splitlines():
+            if string_to_match in str1:
+                return str1
+        return None
+
     #Perform the coderaid on the door with 5 codes, update the door object accordingly, being mindful of a code overload ban
-    def punch_in_5_codes(self, door_object):
+    def punch_in_x_codes(self, door_object):
         while(timestamp() - door_object.time_of_last_code <= 61.0):
             self.wait(0.2)
 
-        for i in range(6):
+        for i in range(self.player_input.codes_per_run):
             outputkeyboard.press(self.player_input.use)
-            self.wait(self.player_input.console_delay * 4)
+            self.wait(self.player_input.console_delay * 5)
             win32api.mouse_event(win32con.MOUSEEVENTF_MOVE, int(7.4075 * (1.0 / self.sens) * 3), int(7.4075 * (1.0 / self.sens) * 5), 0, 0)
-            self.wait(self.player_input.console_delay * 2)
+            self.wait(self.player_input.console_delay * 3)
             outputmouse.click(Button.left,1)
             self.wait(self.player_input.console_delay)
             outputkeyboard.release(self.player_input.use)
-            self.wait(self.player_input.console_delay * 2)
+            self.wait(self.player_input.console_delay * 3)
             print(self.codes_df.iloc[self.standard_info.current_code_count, 0])
-            self.type(str(self.codes_df.iloc[self.standard_info.current_code_count,0]))
+            self.type_slower(str(self.codes_df.iloc[self.standard_info.current_code_count,0]))
             self.standard_info.current_code_count += 1
-            self.wait(self.player_input.console_delay * 8)
-
+            self.wait(self.player_input.console_delay * 5)
+        self.wait(self.player_input.console_delay * 6)
         door_object.update_after_5_codes(False)
-        print(door_object.time_of_last_code)
+        print("Time of code put in: " + str(door_object.time_of_last_code))
 
-        #one or the other
-        self.wait(40 * self.player_input.console_delay)
-
+        output = self.copy_console()
+        check = self.check_in_console(output,"killed by entity")
+        if check is None: #if killed by entity wasnt present
+            self.status.survived_code_crack_count += 1
+            self.suicide(True,True)
+            self.standard_info.current_code_count -= self.player_input.codes_per_run
+        else: # wasnt killed by entity
+            #if killed by entity is true set survived count to 0
+            # one or the other
+            self.wait(40 * self.player_input.console_delay)
+        if(self.status.survived_code_crack_count >= self.player_input.recurring_success):
+            self.status.successfull_code = True
+        #self.wait(40 * self.player_input.console_delay)
         #move_mouse and use pynput
         #check after 2 codes if died to codelock, if yes than is blocked
         #is_banned = False
@@ -610,18 +676,19 @@ class User:
             self.wait(self.player_input.console_delay)
 
         outputmouse.position = (self.console_cords.clear_cord[0], self.console_cords.clear_cord[1])
-        self.wait(self.player_input.console_delay)
+        self.wait(self.player_input.console_delay * 1.5)
         outputmouse.click(Button.left, 1)
         self.wait(self.player_input.console_delay)
         outputmouse.position = (self.console_cords.input_cord[0], self.console_cords.input_cord[1])
-        self.wait(self.player_input.console_delay)
+        self.wait(self.player_input.console_delay * 1.5)
         outputmouse.click(Button.left, 1)
         self.wait(self.player_input.console_delay)
         self.type("client.printpos")
+        self.wait(self.player_input.console_delay)
         usekey(Key.enter)
         self.wait(self.player_input.console_delay)
         outputmouse.position = (self.console_cords.copy_cord[0], self.console_cords.copy_cord[1])
-        self.wait(self.player_input.console_delay)
+        self.wait(self.player_input.console_delay * 1.5)
         outputmouse.click(Button.left, 1)
         self.wait(self.player_input.console_delay)
         cut = pc.paste()
@@ -644,18 +711,19 @@ class User:
             self.wait(self.player_input.console_delay)
 
         outputmouse.position = (self.console_cords.clear_cord[0], self.console_cords.clear_cord[1])
-        self.wait(self.player_input.console_delay)
+        self.wait(self.player_input.console_delay * 1.5)
         outputmouse.click(Button.left, 1)
         self.wait(self.player_input.console_delay)
         outputmouse.position = (self.console_cords.input_cord[0], self.console_cords.input_cord[1])
-        self.wait(self.player_input.console_delay)
+        self.wait(self.player_input.console_delay * 1.5)
         outputmouse.click(Button.left, 1)
         self.wait(self.player_input.console_delay)
         self.type("client.printeyes")
+        self.wait(self.player_input.console_delay)
         usekey(Key.enter)
         self.wait(self.player_input.console_delay)
         outputmouse.position = (self.console_cords.copy_cord[0], self.console_cords.copy_cord[1])
-        self.wait(self.player_input.console_delay)
+        self.wait(self.player_input.console_delay * 1.5)
         outputmouse.click(Button.left, 1)
         self.wait(self.player_input.console_delay)
         cut = pc.paste()
@@ -673,6 +741,10 @@ class User:
             self.wait(self.player_input.console_delay)
 
     def suicide(self,must_open_console,must_close_console):
+        while(timestamp() - self.suicide_timer <= 61.0):
+            self.wait(3 * self.player_input.console_delay)
+            print("Waiting for suicide timer")
+        initial_mouse_pos = list(outputmouse.position)
         self.wait(self.player_input.console_delay)
         if(must_open_console):
             usekey(self.player_input.console)
@@ -684,10 +756,13 @@ class User:
         self.type("kill")
         self.wait(self.player_input.console_delay * 2)
         usekey(Key.enter)
+        self.suicide_timer = timestamp()
         self.wait(self.player_input.console_delay * 2)
         if (must_close_console):
             usekey(self.player_input.console)
-            self.wait(5)
+            self.wait(50 * self.player_input.console_delay)
+        outputmouse.position = (initial_mouse_pos[0], initial_mouse_pos[1])
+        print("Committing suicide")
 
     def should_stop_warnings(self) -> bool:
         if(self.status.kill_switch == True):
@@ -720,6 +795,8 @@ class User:
         # spawn tuple has location, whether its a bed, and the associated door, updated paths has the spawnid and then corresponding location stoppages to the door
         self.read_config()
         self.read_codefile()
+        print("succesfully read code files")
+
 
         from pynput import keyboard
 
@@ -743,6 +820,7 @@ class User:
                 nonlocal path_list
                 if key == self.player_input.killswitch:
                     self.tools.update(spawnlist, doorlist, path_dict, path_list)
+                    self.suicide(True, True)
                     self.set_zoom()
                     self.get_ingame_sens()
                     print("Ended initialization")
@@ -856,7 +934,7 @@ class User:
             startrun_time = timestamp()
             self.spawn(optimalpath.spawn,self.standard_info.map_location)
             self.get_to_door_and_face_lock(optimalpath, startrun_time)
-            self.punch_in_5_codes(optimalpath.door)
+            self.punch_in_x_codes(optimalpath.door)
             #print("REEE")
             #sys.exit(0)
 
@@ -1058,7 +1136,18 @@ def testmouse():
         listener.join()
 
 test = User()
-test.main()
+#test.main()
+
+
+#test.read_config()
+#test.read_codefile()
+#test.map_zoom = test.player_input.targetzoom
+#time.sleep(1)
+#test.set_zoom()
+#test.movemousetobag(Location(759.89,-218.41,20.40),Location(713.4,-397.76,25.80))
+#test.movemousetobag(Location(-982.44,-650.84,8.92),Location(-1031.2,-652.02,2.46))
+print("test")
+
 
 # test.read_config()
 # test.read_codefile()
