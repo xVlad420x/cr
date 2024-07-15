@@ -17,6 +17,7 @@ Player_Death = True
 Animal_Death = False
 Spawn_Destroyed = True
 Door_Ban = True
+Completed_Codes = 60
 
 3) We will consider the pynput screen coordinates of the console buttons we need. For fullscreen 1920x1080 resolution the following should work fine.
 Copy = (1625,900)
@@ -32,7 +33,9 @@ Add_detour = f6
 
 5) Consider certain delays in seconds, the first value is how long to wait between moving to different buttons. Also note how many codes to put into a door in one run.
 Cons_Delay = 0.1
-Codes_Per_Run = 6
-Mp_Zoom = 3
+Codes_Per_Run = 5
+Mp_Zoom = 2
 Recurring_Survivals = 2
-Grids_Fullzoom_Height = 2.1
+Grids_Fullzoom_Height = 2.6
+Failed_Spawns_Means_Destroyed = 3
+Tools_From_CSV = False
