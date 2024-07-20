@@ -17,7 +17,7 @@ Player_Death = True
 Animal_Death = False
 Spawn_Destroyed = True
 Door_Ban = True
-Completed_Codes = 60
+Completed_Codes = 204
 
 3) We will consider the pynput screen coordinates of the console buttons we need. For fullscreen 1920x1080 resolution the following should work fine.
 Copy = (1625,900)
@@ -36,6 +36,6 @@ Cons_Delay = 0.1
 Codes_Per_Run = 5
 Mp_Zoom = 2
 Recurring_Survivals = 2
-Grids_Fullzoom_Height = 2.6
+Grids_Fullzoom_Height = 2.1
 Failed_Spawns_Means_Destroyed = 3
-Tools_From_CSV = False
+Tools_From_CSV = True
